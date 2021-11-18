@@ -17,6 +17,7 @@ def parse(query):
 	global clause_map, clause_counter, q
 	for part in query:
 		if part in operators_l:
+			q += "("
 			for p in query[part]:
 				parse(p)
 				x = len(query[part]) - 1
@@ -30,6 +31,8 @@ def parse(query):
 			clause_map[clauseId] = query
 			clause_counter += 1
 			q += clauseId
+	if part in operators_l:
+		q += ")"
 
 query = {"$or": [{"$and": [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10008"}, {"Discount": 0}]}]}
 parse(query)
