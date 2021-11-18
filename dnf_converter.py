@@ -9,19 +9,16 @@
 
 operators_l = ["$or", "$and", "$nor"]
 
-clause_map = {}
-clause_counter = 0
-q = ""
-
-def parse(query):
-	global clause_map, clause_counter, q
+def parse(query, clause_counter = 0, clause_map = {}):
+	q = ""
 	for part in query:
 		if part in operators_l:
 			q += "("
 			for p in query[part]:
-				parse(p)
-				x = len(query[part]) - 1
-				if p != query[part][x]:
+				q_res, clause_counter, clause_map = parse(p, clause_counter, clause_map)
+				q += q_res
+				last = len(query[part]) - 1
+				if p != query[part][last]:
 					if part == "$and":
 						q += "&"
 					elif part == "$or":
@@ -33,7 +30,8 @@ def parse(query):
 			q += clauseId
 	if part in operators_l:
 		q += ")"
+	return q, clause_counter, clause_map
 
 query = {"$or": [{"$and": [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10008"}, {"Discount": 0}]}]}
-parse(query)
-print(clause_map, q)
+result_q, counter, clause_map = parse(query)
+print(result_q, clause_map)
