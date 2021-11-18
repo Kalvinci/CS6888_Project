@@ -5,7 +5,7 @@ from pymongo import MongoClient
 
 # "mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test"
 client = MongoClient(port=27017)
-db = client.testdb
+db = client["testdb"]
 
 oracle_map = {}
 result_map = {}
