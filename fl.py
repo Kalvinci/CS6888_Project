@@ -1,5 +1,6 @@
 import copy
 import time
+import queryparser as qparser
 from pymongo import MongoClient
 
 # "mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test"
@@ -9,10 +10,13 @@ db = client.testdb
 oracle_map = {}
 result_map = {}
 
-for document in db.order.find({ "$or": [{"$and": [{"Year": { "$gt": 2009 }}, {"Price": { "$gt": 100 }}]}, {"$and": [{ "Zipcode": "10007" }, { "Discount": 0 }]}]}, {"_id": 0}):
+wrong_query = {"$or": [{"$and": [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10008"}, {"Discount": 0}]}]}
+correct_query = {"$or": [{"$and": [{"Year": {"$gt": 2009}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10007"}, {"Discount": 0}]}]}
+
+for document in db.order.find(correct_query, {"_id": 0}):
 	oracle_map[document["Orderid"]] = document
 
-for document in db.order.find({ "$or": [{"$and": [{"Year": { "$gt": 2007 }}, {"Price": { "$gt": 100 }}]}, {"$and": [{ "Zipcode": "10008" }, { "Discount": 0 }]}]}, {"_id": 0}):
+for document in db.order.find(wrong_query, {"_id": 0}):
 	result_map[document["Orderid"]] = document
 
 oracle_orderIds = set(oracle_map.keys())
@@ -21,9 +25,9 @@ result_orderIds = set(result_map.keys())
 superflous = result_orderIds.difference(oracle_orderIds)
 absent = oracle_orderIds.difference(result_orderIds)
 
-# query = {"$or": [{"$and": [{"Year": {"$gt": 2009}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10007"}, {"Discount": 0}]}]}
+parsed_query = qparser.parse(wrong_query)
 
-cps = [{"$and": [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10008"}, {"Discount": 0}]}]
+cps = [item["CP"] for item in parsed_query.values()]
 
 sus_counter = {}
 
@@ -73,7 +77,7 @@ for cp in cps:
 						else:
 							sus_counter[clause] = 1
 
-# print(sus_counter)
+print(sus_counter)
 
 # print(superflous_clausemap, absent_clausemap)
 
@@ -87,23 +91,23 @@ for document in db.order.find({}, {"Orderid": 1}):
 
 trueNeg = allIds.difference(union_orderIds)
 
-# print(truePos, trueNeg)
+print(truePos, trueNeg)
 
-replacement_doc = result_map[2]
+# replacement_doc = result_map[2]
 
-mut_collection = db["mutation"]
+# mut_collection = db["mutation"]
 
-for id in superflous:
-	doc = copy.deepcopy(result_map[id])
-	for field in superflous_clausemap[id].keys():
-		# print(field)
-		temp = doc[field]
-		doc[field] = replacement_doc[field]
-		# print(doc)
-		mut_collection.insert_one(doc)
-		time.sleep(2)
-		doc[field] = temp
-		
-		mut_collection.delete_one({"Orderid": id})
+# for id in superflous:
+# 	doc = copy.deepcopy(result_map[id])
+# 	for field in superflous_clausemap[id].keys():
+# 		# print(field)
+# 		temp = doc[field]
+# 		doc[field] = replacement_doc[field]
+# 		# print(doc)
+# 		mut_collection.insert_one(doc)
+# 		time.sleep(2)
+# 		doc[field] = temp
+# 		# determine the group of the mutant
+# 		mut_collection.delete_one({"Orderid": id})
 
-mut_collection.drop()
+# mut_collection.drop()
