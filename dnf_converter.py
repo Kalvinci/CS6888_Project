@@ -1,25 +1,20 @@
-# from sympy import symbols
-# from sympy.logic.boolalg import to_dnf
+from sympy.logic.boolalg import to_dnf
 
-# c = []
-# for i in range(5):
-# 	c.append(symbols("c"+str(i)))
-
-# print(to_dnf(c[0] & c[1]))
-
-operators_l = ["$or", "$and", "$nor"]
+operators = ["$or", "$and", "$nor"]
 
 def parse(query, clause_counter = 0, clause_map = {}):
 	q = ""
 	for part in query:
-		if part in operators_l:
+		if part in operators:
 			q += "("
 			for p in query[part]:
 				q_res, clause_counter, clause_map = parse(p, clause_counter, clause_map)
+				if part == "$nor":
+					q_res = "~" + q_res
 				q += q_res
 				last = len(query[part]) - 1
 				if p != query[part][last]:
-					if part == "$and":
+					if part == "$and" or part == "$nor":
 						q += "&"
 					elif part == "$or":
 						q += "|"
@@ -28,10 +23,14 @@ def parse(query, clause_counter = 0, clause_map = {}):
 			clause_map[clauseId] = query
 			clause_counter += 1
 			q += clauseId
-	if part in operators_l:
+	if part in operators:
 		q += ")"
 	return q, clause_counter, clause_map
 
+def convert(query):
+	result_q, counter, clause_map = parse(query)
+	return to_dnf(result_q), clause_map
+
 query = {"$or": [{"$and": [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10008"}, {"Discount": 0}]}]}
-result_q, counter, clause_map = parse(query)
-print(result_q, clause_map)
+result, clause_map = convert(query)
+print(result)
