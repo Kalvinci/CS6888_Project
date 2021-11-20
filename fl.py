@@ -7,6 +7,8 @@ from pymongo import MongoClient
 client = MongoClient(port=27017)
 db = client["testdb"]
 
+primary_key = "Orderid"
+
 oracle_map = {}
 result_map = {}
 
@@ -14,10 +16,10 @@ wrong_query = {"$or": [{"$and": [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}
 correct_query = {"$or": [{"$and": [{"Year": {"$gt": 2009}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10007"}, {"Discount": 0}]}]}
 
 for document in db.order.find(correct_query, {"_id": 0}):
-	oracle_map[document["Orderid"]] = document
+	oracle_map[document[primary_key]] = document
 
 for document in db.order.find(wrong_query, {"_id": 0}):
-	result_map[document["Orderid"]] = document
+	result_map[document[primary_key]] = document
 
 oracle_orderIds = set(oracle_map.keys())
 result_orderIds = set(result_map.keys())
@@ -37,8 +39,8 @@ absent_clausemap = {}
 for cp in cps:
 	for op in cp:
 		ids = set()
-		for document in db.order.find(cp, {"Orderid": 1}):
-			ids.add(document["Orderid"])
+		for document in db.order.find(cp):
+			ids.add(document[primary_key])
 		for id in superflous:
 			if id in ids:
 				for clause in cp[op]:
@@ -60,8 +62,8 @@ for cp in cps:
 			if id not in ids:
 				for clause in cp[op]:
 					docids = set()
-					for doc in db.order.find(clause, {"Orderid": 1}):
-						docids.add(doc["Orderid"])
+					for doc in db.order.find(clause):
+						docids.add(doc[primary_key])
 					if id not in docids:
 						field = list(clause.keys())[0]
 						clause = str(clause)
@@ -86,8 +88,8 @@ truePos = oracle_orderIds.intersection(result_orderIds)
 union_orderIds = oracle_orderIds.union(result_orderIds)
 
 allIds = set()
-for document in db.order.find({}, {"Orderid": 1}):
-	allIds.add(document["Orderid"])
+for document in db.order.find({}):
+	allIds.add(document[primary_key])
 
 trueNeg = allIds.difference(union_orderIds)
 
@@ -108,6 +110,6 @@ print(truePos, trueNeg)
 # 		time.sleep(2)
 # 		doc[field] = temp
 # 		# determine the group of the mutant
-# 		mut_collection.delete_one({"Orderid": id})
+# 		mut_collection.delete_one({primary_key: id})
 
 # mut_collection.drop()

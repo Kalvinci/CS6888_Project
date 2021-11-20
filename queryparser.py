@@ -1,5 +1,7 @@
-# requires query to be in DNF
+import dnf_converter
+
 def parse(query):
+	query = dnf_converter.convert(query)
 	cp_clause_map = {}
 	cp_counter = 0
 	for cp in query["$or"]:

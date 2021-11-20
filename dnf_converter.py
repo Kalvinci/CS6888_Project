@@ -29,8 +29,23 @@ def parse(query, clause_counter = 0, clause_map = {}):
 
 def convert(query):
 	result_q, counter, clause_map = parse(query)
-	return to_dnf(result_q), clause_map
-
-query = {"$or": [{"$and": [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10008"}, {"Discount": 0}]}]}
-result, clause_map = convert(query)
-print(result)
+	intermediate_dnf = str(to_dnf(result_q))
+	cps = [cp.strip() for cp in intermediate_dnf.split("|")]
+	cp_queries = []
+	for cp in cps:
+		clauses = [clause.strip().strip("(").strip(")") for clause in cp.split("&")]
+		clause_list = []
+		for clause in clauses:
+			if "~" in clause:
+				clause_query = clause_map[clause[1:]]
+				field = list(clause_query.keys())[0] 
+				clause_query[field] = {"$not": clause_query[field]}
+				clause_list.append(clause_query)
+			else:
+				clause_list.append(clause_map[clause])
+		if len(clause_list) > 1:
+			cp_queries.append({"$and": clause_list})
+		elif len(clause_list) == 1:
+			cp_queries.append(clause_list[0])
+	dnf_query = {"$or": cp_queries}
+	return dnf_query
