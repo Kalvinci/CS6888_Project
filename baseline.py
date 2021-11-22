@@ -18,10 +18,10 @@ for document in db.order.find({}, {"Orderid": 1}):
 wrong_query = {"$or": [{"$and": [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10008"}, {"Discount": 0}]}]}
 correct_query = {"$or": [{"$and": [{"Year": {"$gt": 2009}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10007"}, {"Discount": 0}]}]}
 
-for document in db.order.find(correct_query, {"_id": 0}):
+for document in db.order.find(correct_query):
 	oracle_map[document[primary_key]] = document
 
-for document in db.order.find(wrong_query, {"_id": 0}):
+for document in db.order.find(wrong_query):
 	result_map[document[primary_key]] = document
 
 
@@ -31,9 +31,7 @@ result_orderIds = set(result_map.keys())
 superflous = result_orderIds.difference(oracle_orderIds)
 absent = oracle_orderIds.difference(result_orderIds)
 
-parsed_query = qparser.parse(wrong_query)
-cps = [item["cp"] for item in parsed_query.values()]
-clauses = [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}}, {"Zipcode": "10008"}, {"Discount": 0}]
+cp_clause_list, clause_list = qparser.parse(wrong_query)
 
 totalPassIds = allIds.difference(superflous).difference(absent)
 totalFailIds = allIds.difference(totalPassIds)
@@ -41,7 +39,7 @@ totalFailIds = allIds.difference(totalPassIds)
 t_sus_score_map = {}
 o_sus_score_map = {}
 
-for clause in clauses:
+for clause in clause_list:
 	clausePassIds = set()
 	for doc in db.order.find(clause):
 		clausePassIds.add(doc[primary_key])
@@ -56,7 +54,7 @@ for clause in clauses:
 	falseScore = 0 if denominator == 0 else round(ffratio / denominator, 2)
 	t_sus_score_map[str(clause)] = {"true": trueScore, "false": falseScore, "score": round((trueScore + falseScore), 2)}
 
-for clause in clauses:
+for clause in clause_list:
 	clausePassIds = set()
 	for doc in db.order.find(clause):
 		clausePassIds.add(doc[primary_key])
@@ -72,7 +70,7 @@ for clause in clauses:
 	falseScore =  0 if denominator == 0 else round(failed_c / denominator, 2)
 	o_sus_score_map[str(clause)] = {"true": trueScore, "false": falseScore, "score": round((trueScore + falseScore), 2)}
 
-print("Tarantula:")
+print("\nTarantula:")
 print(t_sus_score_map)
-print("Ochiai:")
+print("\nOchiai:")
 print(o_sus_score_map)
