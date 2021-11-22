@@ -1,4 +1,3 @@
-import time
 import queryparser as qparser
 from replacement import getTruePositiveDocs, getTrueNegativeDoc
 from pymongo import MongoClient
@@ -99,14 +98,12 @@ for replacement_doc in replacement_docs:
 			temp = doc[field]
 			doc[field] = replacement_doc[field]
 			mut_collection.insert_one(doc)
-			time.sleep(2)
 			ret = set()
 			for res_row in mut_collection.find(correct_query):
 				ret.add(res_row[primary_key])
 			if len(ret) == 0:
 				clause = superflous_clausemap[id][field]
 				sus_counter[clause] = sus_counter[clause] - 1
-			time.sleep(2)
 			doc[field] = temp
 			mut_collection.delete_one({primary_key: id})
 
@@ -119,14 +116,12 @@ if replacement_doc != None:
 			temp = doc[field]
 			doc[field] = replacement_doc[field]
 			mut_collection.insert_one(doc)
-			time.sleep(2)
 			ret = set()
 			for res_row in mut_collection.find(correct_query):
 				ret.add(res_row[primary_key])
 			if len(ret) != 0:
 				clause = absent_clausemap[id][field]
 				sus_counter[clause] = sus_counter[clause] - 1
-			time.sleep(2)
 			doc[field] = temp
 			mut_collection.delete_one({primary_key: id})
 
