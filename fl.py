@@ -14,10 +14,10 @@ result_map = {}
 wrong_query = {"$or": [{"$and": [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10008"}, {"Discount": 0}]}]}
 correct_query = {"$or": [{"$and": [{"Year": {"$gt": 2009}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10007"}, {"Discount": 0}]}]}
 
-for document in db.order.find(correct_query, {"_id": 0}):
+for document in db.order.find(correct_query):
 	oracle_map[document[primary_key]] = document
 
-for document in db.order.find(wrong_query, {"_id": 0}):
+for document in db.order.find(wrong_query):
 	result_map[document[primary_key]] = document
 
 oracle_orderIds = set(oracle_map.keys())
@@ -35,7 +35,7 @@ sus_counter = {}
 superflous_clausemap = {}
 absent_clausemap = {}
 
-print("\nComputing Suspiciousness counter...")
+print("\nComputing Suspiciousness counters...")
 for item in cp_clause_list:
 	ids = set()
 	cp = item["cp"]
@@ -43,15 +43,34 @@ for item in cp_clause_list:
 	for document in db.order.find(cp):
 		ids.add(document[primary_key])
 	
-	for id in superflous:
-		if id in ids:
-			for clause in clauses:
+	for id in superflous.intersection(ids):
+		for clause in clauses:
+			field = list(clause.keys())[0]
+			clause = str(clause)
+			if id in superflous_clausemap:
+				superflous_clausemap[id][field] = clause
+			else:
+				superflous_clausemap[id] = { field: clause }
+
+			if clause in sus_counter:
+				counter = sus_counter[clause]
+				counter += 1
+				sus_counter[clause] = counter
+			else:
+				sus_counter[clause] = 1
+	
+	for id in absent.difference(ids):
+		for clause in clauses:
+			docids = set()
+			for doc in db.order.find(clause):
+				docids.add(doc[primary_key])
+			if id not in docids:
 				field = list(clause.keys())[0]
 				clause = str(clause)
-				if id in superflous_clausemap:
-					superflous_clausemap[id][field] = clause
+				if id in absent_clausemap:
+					absent_clausemap[id][field] = clause
 				else:
-					superflous_clausemap[id] = { field: clause }
+					absent_clausemap[id] = { field: clause }
 
 				if clause in sus_counter:
 					counter = sus_counter[clause]
@@ -59,27 +78,6 @@ for item in cp_clause_list:
 					sus_counter[clause] = counter
 				else:
 					sus_counter[clause] = 1
-	
-	for id in absent:
-			if id not in ids:
-				for clause in clauses:
-					docids = set()
-					for doc in db.order.find(clause):
-						docids.add(doc[primary_key])
-					if id not in docids:
-						field = list(clause.keys())[0]
-						clause = str(clause)
-						if id in absent_clausemap:
-							absent_clausemap[id][field] = clause
-						else:
-							absent_clausemap[id] = { field: clause }
-
-						if clause in sus_counter:
-							counter = sus_counter[clause]
-							counter += 1
-							sus_counter[clause] = counter
-						else:
-							sus_counter[clause] = 1
 
 print(sus_counter)
 
@@ -124,6 +122,8 @@ if replacement_doc != None:
 				sus_counter[clause] = sus_counter[clause] - 1
 			doc[field] = temp
 			mut_collection.delete_one({primary_key: id})
+
+mut_collection.drop()
 
 sus_clauses = []
 for clause, count in sus_counter.items():

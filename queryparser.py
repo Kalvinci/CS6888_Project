@@ -7,7 +7,12 @@ def parse(query):
 	clause_list = []
 	for cp in query["$or"]:
 		clauses = []
-		for clause in cp["$and"]:
+		if "$and" in cp:
+			for clause in cp["$and"]:
+				clauses.append(clause)
+				clause_list.append(clause)
+		else:
+			clause = cp
 			clauses.append(clause)
 			clause_list.append(clause)
 		cp_clause_list.append({ "cp": cp, "clauses": clauses })
