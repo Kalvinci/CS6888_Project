@@ -52,4 +52,4 @@ def convert(query):
 			cp_queries.append(clause_list[0])
 	dnf_query = {"$or": cp_queries}
 	print("\nDNF -> ", dnf_query)
-	return dnf_query
+	return dnf_query, clause_map
