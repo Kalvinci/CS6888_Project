@@ -27,12 +27,14 @@ def convert_to_symbols(query, clause_counter = 0, clause_map = {}):
 		q += ")"
 	return q, clause_counter, clause_map
 
-def convert(query):
-	print("\nconverting to intermediate form...")
+def convert(query, showTrace=False):
+	if showTrace:
+		print("\nconverting to intermediate form...")
 	result_q, counter, clause_map = convert_to_symbols(query)
 	print(result_q)
 	intermediate_dnf = str(to_dnf(result_q))
-	print("\nintermediate DNF -> ", intermediate_dnf)
+	if showTrace:
+		print("\nintermediate DNF -> ", intermediate_dnf)
 	cps = [cp.strip() for cp in intermediate_dnf.split("|")]
 	cp_queries = []
 	clause_assoc = {}
@@ -56,5 +58,6 @@ def convert(query):
 		elif len(clause_list) == 1:
 			cp_queries.append(clause_list[0])
 	dnf_query = {"$or": cp_queries}
-	print("\nDNF -> ", dnf_query)
+	if showTrace:
+		print("\nDNF -> ", dnf_query)
 	return dnf_query, clause_map, clause_assoc

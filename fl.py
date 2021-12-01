@@ -1,8 +1,8 @@
 import queryparser as qparser
 from replacement import getTruePositiveDocs, getTrueNegativeDoc
 from pymongo import MongoClient
-from pprint import pprint
 import sys, json
+from tabulate import tabulate
 
 def run(connection_url, db_name, collection_name, primary_key, test_query, oracle_query):
 	client = MongoClient(connection_url)
@@ -23,7 +23,7 @@ def run(connection_url, db_name, collection_name, primary_key, test_query, oracl
 	superflous = result_Ids.difference(oracle_Ids)
 	absent = oracle_Ids.difference(result_Ids)
 
-	cp_clause_list, g_clause_map, clause_assoc = qparser.parse(test_query)
+	cp_clause_list, g_clause_map, clause_assoc = qparser.parse(test_query, True)
 	correct_cp_clause_list, correct_g_clause_map, correct_clause_assoc = qparser.parse(oracle_query)
 
 	correct_cps = [item["cp"] for item in correct_cp_clause_list]
@@ -79,7 +79,7 @@ def run(connection_url, db_name, collection_name, primary_key, test_query, oracl
 				else:
 					sus_counter[clause_str] = 1
 
-	print(sus_counter)
+	print(tabulate(sus_counter.items(), headers=["Clause", "Suspiciousness Counter"], tablefmt="psql", showindex=False))
 
 	print("\nExonerating innocent clauses...")
 
@@ -157,7 +157,9 @@ def run(connection_url, db_name, collection_name, primary_key, test_query, oracl
 	for clause, count in sus_counter.items():
 		if count > 0:
 			sus_clauses.append(clause)
-	return sus_clauses
+	
+	print("\nResult:")
+	print(tabulate([[s_c] for s_c in sus_clauses], headers=["Suspicious Clauses"], tablefmt="psql", showindex=False))
 
 if __name__ == "__main__":
 	if len(sys.argv) < 2:
@@ -172,5 +174,4 @@ if __name__ == "__main__":
 		primary_key = input_data["primary_key"]
 		test_query = input_data["test_query"]
 		oracle_query = input_data["oracle_query"]
-		sus_clauses = run(connection_url, db_name, collection_name, primary_key, test_query, oracle_query)
-		print("\nResult: ", sus_clauses)
+		run(connection_url, db_name, collection_name, primary_key, test_query, oracle_query)
