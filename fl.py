@@ -1,41 +1,44 @@
-import re
 import queryparser as qparser
 from replacement import getTruePositiveDocs, getTrueNegativeDoc
 from pymongo import MongoClient
 from pprint import pprint
 
 # "mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test" port=27017 "mongodb+srv://abhi:abhi@cluster0.bj0f8.mongodb.net/test"
-client = MongoClient(port=27017)
+# client = MongoClient(port=27017)
 
-db = client["testdb"]
-orig_collection = db["order"]
-primary_key = "Orderid"
+# db = client["testdb"]
+# orig_collection = db["order"]
+# primary_key = "Orderid"
 
-wrong_query = {"$or" : [
-            {"$and" : [
-                        {"Year" : { "$gt" : 2007} }, {"Price" : {"$gt" : 100}}
-                        ]},
-            {"$and" : [
-                        {"Zipcode" : "10008"},{"Discount" : 0}
-                        ]}
-            ]}
-correct_query = {"$or" : [
-            {"$and" : [
-                        {"Year" : { "$gt" : 2009} }, {"Price" : {"$gt" : 100}}
-                        ]},
-            {"$and" : [
-                        {"Zipcode" : "10007"},{"Discount" : 0}
-                        ]}
-            ]}
+# wrong_query = {"$or" : [
+#             {"$and" : [
+#                         {"Year" : { "$gt" : 2007} }, {"Price" : {"$gt" : 100}}
+#                         ]},
+#             {"$and" : [
+#                         {"Zipcode" : "10008"},{"Discount" : 0}
+#                         ]}
+#             ]}
+# correct_query = {"$or" : [
+#             {"$and" : [
+#                         {"Year" : { "$gt" : 2009} }, {"Price" : {"$gt" : 100}}
+#                         ]},
+#             {"$and" : [
+#                         {"Zipcode" : "10007"},{"Discount" : 0}
+#                         ]}
+#             ]}
 
-# client = MongoClient("mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test")
+client = MongoClient("mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test")
 
-# db = client["sample_mflix"]
-# orig_collection = db["movies"]
-# primary_key = "_id"
+db = client["sample_mflix"]
+orig_collection = db["movies"]
+primary_key = "_id"
 
-# wrong_query = {"$and" : [{"year" : {"$gt" : 1900}}, {"$or": [{"runtime" : {"$lt" : 10}}, {"$and" : [{"rated": "APPROVED"},{"runtime" : {"$gt" : 50}}]}]}]}
-# correct_query = {"$and" : [{"year" : {"$gt" : 1900}}, {"$or": [{"runtime" : {"$lt" : 10}}, {"$and" : [{"rated": "APPROVED"},{"runtime" : {"$gt" : 60}}]}]}]}
+# wrong_query = {"$and" : [{"year" : {"$gt" : 1900}}, {"$or": [{"runtime" : {"$lt" : 10}}, {"$and" : [{"rated": "APPROVED"},{"runtime" : {"$gt" : 60}}]}]}]}
+# correct_query = {"$and" : [{"year" : {"$gt" : 1900}}, {"$or": [{"runtime" : {"$lt" : 10}}, {"$and" : [{"rated": "APPROVED"},{"runtime" : {"$gt" : 50}}]}]}]}
+
+wrong_query = {"$and": [{"year":2015},{"metacritic":{"$gt": 85}},{"genres":{"$in":["Drama"]}}]}
+
+correct_query = {"$and": [{"year":2015},{"metacritic":{"$gt": 86}},{"genres":{"$in":["Drama"]}}]}
 
 oracle_Ids = set()
 result_Ids = set()
@@ -43,21 +46,16 @@ result_Ids = set()
 for doc in orig_collection.find(wrong_query, {primary_key: 1}):
 	result_Ids.add(doc[primary_key])
 
-print(result_Ids)
-
 for doc in orig_collection.find(correct_query, {primary_key: 1}):
 	oracle_Ids.add(doc[primary_key])
-
-print(oracle_Ids)
-
 
 superflous = result_Ids.difference(oracle_Ids)
 absent = oracle_Ids.difference(result_Ids)
 
-cp_clause_map, g_clause_map = qparser.parse(wrong_query)
-correct_cp_clause_map, correct_g_clause_map = qparser.parse(correct_query)
+cp_clause_list, g_clause_map = qparser.parse(wrong_query)
+correct_cp_clause_list, correct_g_clause_map = qparser.parse(correct_query)
 
-correct_cps = [item["CP"] for item in correct_cp_clause_map.values()]
+correct_cps = [item["cp"] for item in correct_cp_clause_list]
 correct_clause_list = list(correct_g_clause_map.values())
 
 sus_counter = {}
@@ -66,18 +64,16 @@ superflous_clausemap = {}
 absent_clausemap = {}
 
 print("\nComputing Suspiciousness counters...")
-for item in cp_clause_map.values():
+for item in cp_clause_list:
 	pass_cp_ids = set()
-	cp = item["CP"]
-	clause_map = item["clauses"]
+	cp = item["cp"]
+	clauses = item["clauses"]
 
 	for document in orig_collection.find({"$and": [cp, {primary_key: {"$in": list(superflous)}}]}):
 		pass_cp_ids.add(document[primary_key])
 	
-	print(pass_cp_ids)
-
 	for id in pass_cp_ids:
-		for clause_id, clause in clause_map.items():
+		for clause in clauses:
 			field = list(clause.keys())[0]
 			clause_str = str(clause)
 			
@@ -94,7 +90,7 @@ for item in cp_clause_map.values():
 				sus_counter[clause_str] = 1
 
 	fail_cp_ids = absent.difference(pass_cp_ids)
-	for clause_id, clause in clause_map.items():
+	for clause in clauses:
 		field = list(clause.keys())[0]
 		clause_str = str(clause)
 		pass_clause_ids = set()
@@ -124,9 +120,7 @@ local_client = MongoClient(port=27017)
 local_db = local_client["testdb"]
 mut_collection = local_db["mutation"]
 
-truePos = oracle_Ids.intersection(result_Ids)
-
-replacement_docs = getTruePositiveDocs(orig_collection, correct_cps, truePos, primary_key)
+replacement_docs = getTruePositiveDocs(orig_collection, correct_cps)
 
 for doc in orig_collection.find({primary_key: {"$in": list(superflous)}}):
 	for replacement_doc in replacement_docs:
@@ -154,7 +148,7 @@ for doc in orig_collection.find({primary_key: {"$in": list(superflous)}}):
 			if len(ret) == 0:
 				sus_counter[clause_str] = sus_counter[clause_str] - 1
 			
-			del_result = mut_collection.delete_one({primary_key: id})
+			del_result = mut_collection.delete_one({"_id": insert_id})
 
 replacement_doc = getTrueNegativeDoc(orig_collection, correct_clause_list)
 

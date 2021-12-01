@@ -1,10 +1,9 @@
-def getTruePositiveDocs(collection, cps, truePos, primary_key):
+def getTruePositiveDocs(collection, cps):
 	replacement_docs = []
 	for cp in cps:
 		for doc in collection.find(cp):
-			if doc[primary_key] in truePos:
-				replacement_docs.append(doc)
-				break
+			replacement_docs.append(doc)
+			break
 	return replacement_docs
 
 def getTrueNegativeDoc(collection, clauses):
