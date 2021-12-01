@@ -115,7 +115,7 @@ def run(connection_url, db_name, collection_name, primary_key, test_query, oracl
 				if len(ret) > 0:
 					for c_str in clause_assoc[clause_str]:
 						if c_str in sus_counter:
-							sus_counter[c_str] = sus_counter[c_str] - 1
+							sus_counter[c_str] -= 1
 				
 				del_result = mut_collection.delete_one({"_id": insert_id})
 
@@ -144,10 +144,8 @@ def run(connection_url, db_name, collection_name, primary_key, test_query, oracl
 				for res_row in mut_collection.find(oracle_query):
 					ret.add(res_row["_id"])
 
-				if len(ret) == 0:
-					for c_str in clause_assoc[clause_str]:
-						if c_str in sus_counter:
-							sus_counter[c_str] = sus_counter[c_str] - 1
+				if len(ret) > 0:
+					sus_counter[clause_str] -= 1
 
 				del_result = mut_collection.delete_one({"_id": insert_id})
 

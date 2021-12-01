@@ -31,7 +31,8 @@ def convert(query, showTrace=False):
 	if showTrace:
 		print("\nconverting to intermediate form...")
 	result_q, counter, clause_map = convert_to_symbols(query)
-	print(result_q)
+	if showTrace:
+		print(result_q)
 	intermediate_dnf = str(to_dnf(result_q))
 	if showTrace:
 		print("\nintermediate DNF -> ", intermediate_dnf)
