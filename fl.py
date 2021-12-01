@@ -2,189 +2,175 @@ import queryparser as qparser
 from replacement import getTruePositiveDocs, getTrueNegativeDoc
 from pymongo import MongoClient
 from pprint import pprint
+import sys, json
 
-# "mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test" port=27017 "mongodb+srv://abhi:abhi@cluster0.bj0f8.mongodb.net/test"
-# client = MongoClient(port=27017)
+def run(connection_url, db_name, collection_name, primary_key, test_query, oracle_query):
+	client = MongoClient(connection_url)
 
-# db = client["testdb"]
-# orig_collection = db["order"]
-# primary_key = "Orderid"
+	db = client[db_name]
+	orig_collection = db[collection_name]
+	primary_key = primary_key
 
-# wrong_query = {"$or" : [
-#             {"$and" : [
-#                         {"Year" : { "$gt" : 2007} }, {"Price" : {"$gt" : 100}}
-#                         ]},
-#             {"$and" : [
-#                         {"Zipcode" : "10008"},{"Discount" : 0}
-#                         ]}
-#             ]}
-# correct_query = {"$or" : [
-#             {"$and" : [
-#                         {"Year" : { "$gt" : 2009} }, {"Price" : {"$gt" : 100}}
-#                         ]},
-#             {"$and" : [
-#                         {"Zipcode" : "10007"},{"Discount" : 0}
-#                         ]}
-#             ]}
+	oracle_Ids = set()
+	result_Ids = set()
 
-client = MongoClient("mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test")
+	for doc in orig_collection.find(test_query, {primary_key: 1}):
+		result_Ids.add(doc[primary_key])
 
-db = client["sample_mflix"]
-orig_collection = db["movies"]
-primary_key = "_id"
+	for doc in orig_collection.find(oracle_query, {primary_key: 1}):
+		oracle_Ids.add(doc[primary_key])
 
-# wrong_query = {"$and" : [{"year" : {"$gt" : 1900}}, {"$or": [{"runtime" : {"$lt" : 10}}, {"$and" : [{"rated": "APPROVED"},{"runtime" : {"$gt" : 60}}]}]}]}
-# correct_query = {"$and" : [{"year" : {"$gt" : 1900}}, {"$or": [{"runtime" : {"$lt" : 10}}, {"$and" : [{"rated": "APPROVED"},{"runtime" : {"$gt" : 50}}]}]}]}
+	superflous = result_Ids.difference(oracle_Ids)
+	absent = oracle_Ids.difference(result_Ids)
 
-wrong_query = {"$and": [{"year":2015},{"metacritic":{"$gt": 85}},{"genres":{"$in":["Drama"]}}]}
+	cp_clause_list, g_clause_map, clause_assoc = qparser.parse(test_query)
+	correct_cp_clause_list, correct_g_clause_map, correct_clause_assoc = qparser.parse(oracle_query)
 
-correct_query = {"$and": [{"year":2015},{"metacritic":{"$gt": 86}},{"genres":{"$in":["Drama"]}}]}
+	correct_cps = [item["cp"] for item in correct_cp_clause_list]
+	correct_clause_list = list(correct_g_clause_map.values())
 
-oracle_Ids = set()
-result_Ids = set()
+	sus_counter = {}
 
-for doc in orig_collection.find(wrong_query, {primary_key: 1}):
-	result_Ids.add(doc[primary_key])
+	superflous_clausemap = {}
+	absent_clausemap = {}
 
-for doc in orig_collection.find(correct_query, {primary_key: 1}):
-	oracle_Ids.add(doc[primary_key])
+	print("\nComputing Suspiciousness counters...")
+	for item in cp_clause_list:
+		pass_cp_ids = set()
+		cp = item["cp"]
+		clauses = item["clauses"]
 
-superflous = result_Ids.difference(oracle_Ids)
-absent = oracle_Ids.difference(result_Ids)
+		for document in orig_collection.find({"$and": [cp, {primary_key: {"$in": list(superflous)}}]}):
+			pass_cp_ids.add(document[primary_key])
+		
+		for id in pass_cp_ids:
+			for clause in clauses:
+				field = list(clause.keys())[0]
+				clause_str = str(clause)
+				
+				if id in superflous_clausemap:
+					superflous_clausemap[id].append({"field": field, "clause_str": clause_str, "clause": clause})
+				else:
+					superflous_clausemap[id] = [{"field": field, "clause_str": clause_str, "clause": clause}]
 
-cp_clause_list, g_clause_map = qparser.parse(wrong_query)
-correct_cp_clause_list, correct_g_clause_map = qparser.parse(correct_query)
+				if clause_str in sus_counter:
+					sus_counter[clause_str] += 1
+				else:
+					sus_counter[clause_str] = 1
 
-correct_cps = [item["cp"] for item in correct_cp_clause_list]
-correct_clause_list = list(correct_g_clause_map.values())
-
-sus_counter = {}
-
-superflous_clausemap = {}
-absent_clausemap = {}
-
-print("\nComputing Suspiciousness counters...")
-for item in cp_clause_list:
-	pass_cp_ids = set()
-	cp = item["cp"]
-	clauses = item["clauses"]
-
-	for document in orig_collection.find({"$and": [cp, {primary_key: {"$in": list(superflous)}}]}):
-		pass_cp_ids.add(document[primary_key])
-	
-	for id in pass_cp_ids:
+		fail_cp_ids = absent.difference(pass_cp_ids)
 		for clause in clauses:
 			field = list(clause.keys())[0]
 			clause_str = str(clause)
+			pass_clause_ids = set()
 			
-			if id in superflous_clausemap:
-				superflous_clausemap[id].append({"field": field, "clause_str": clause_str})
-			else:
-				superflous_clausemap[id] = [{"field": field, "clause_str": clause_str}]
-
-			if clause_str in sus_counter:
-				counter = sus_counter[clause_str]
-				counter += 1
-				sus_counter[clause_str] = counter
-			else:
-				sus_counter[clause_str] = 1
-
-	fail_cp_ids = absent.difference(pass_cp_ids)
-	for clause in clauses:
-		field = list(clause.keys())[0]
-		clause_str = str(clause)
-		pass_clause_ids = set()
-		
-		for doc in orig_collection.find({"$and": [clause, {primary_key: {"$in": list(absent)}}]}):
-			pass_clause_ids.add(doc[primary_key])
-		
-		fail_clause_ids = fail_cp_ids.difference(pass_clause_ids)
-		for id in fail_clause_ids:
-			if id in absent_clausemap:
-				absent_clausemap[id].append({"field": field, "clause_str": clause_str})
-			else:
-				absent_clausemap[id] = [{"field": field, "clause_str": clause_str}]
-
-			if clause_str in sus_counter:
-				counter = sus_counter[clause_str]
-				counter += 1
-				sus_counter[clause_str] = counter
-			else:
-				sus_counter[clause_str] = 1
-
-print(sus_counter)
-
-print("\nExonerating innocent clauses...")
-
-local_client = MongoClient(port=27017)
-local_db = local_client["testdb"]
-mut_collection = local_db["mutation"]
-
-replacement_docs = getTruePositiveDocs(orig_collection, correct_cps)
-
-for doc in orig_collection.find({primary_key: {"$in": list(superflous)}}):
-	for replacement_doc in replacement_docs:
-		id = doc[primary_key]
-		for c_map in superflous_clausemap[id]:
-			field = c_map["field"]
-			clause_str = c_map["clause_str"]
+			for doc in orig_collection.find({"$and": [clause, {primary_key: {"$in": list(absent)}}]}):
+				pass_clause_ids.add(doc[primary_key])
 			
-			insert_doc = {}
-			for key in doc:
-				if key == "_id":
-					continue
-				if key == field:
-					insert_doc[key] = replacement_doc[field] if field in replacement_doc else None
+			fail_clause_ids = fail_cp_ids.difference(pass_clause_ids)
+			for id in fail_clause_ids:
+				if id in absent_clausemap:
+					absent_clausemap[id].append({"field": field, "clause_str": clause_str, "clause": clause})
 				else:
-					insert_doc[key] = doc[key]
-			
-			insert_result = mut_collection.insert_one(insert_doc)
-			insert_id = insert_result.inserted_id
+					absent_clausemap[id] = [{"field": field, "clause_str": clause_str, "clause": clause}]
 
-			ret = set()
-			for res_row in mut_collection.find(correct_query):
-				ret.add(res_row["_id"])
-			
-			if len(ret) == 0:
-				sus_counter[clause_str] = sus_counter[clause_str] - 1
-			
-			del_result = mut_collection.delete_one({"_id": insert_id})
-
-replacement_doc = getTrueNegativeDoc(orig_collection, correct_clause_list)
-
-if replacement_doc != None:
-	for doc in orig_collection.find({primary_key: {"$in": list(absent)}}):
-		id = doc[primary_key]
-		for c_map in absent_clausemap[id]:
-			field = c_map["field"]
-			clause_str = c_map["clause_str"]
-			
-			insert_doc = {}
-			for key in doc:
-				if key == "_id":
-					continue
-				if key == field:
-					insert_doc[key] = replacement_doc[field] if field in replacement_doc else None
+				if clause_str in sus_counter:
+					sus_counter[clause_str] += 1
 				else:
-					insert_doc[key] = doc[key]
+					sus_counter[clause_str] = 1
 
-			insert_result = mut_collection.insert_one(insert_doc)
-			insert_id = insert_result.inserted_id
-			
-			ret = set()
-			for res_row in mut_collection.find(correct_query):
-				ret.add(res_row["_id"])
+	print(sus_counter)
 
-			if len(ret) != 0:
-				sus_counter[clause_str] = sus_counter[clause_str] - 1
+	print("\nExonerating innocent clauses...")
 
-			del_result = mut_collection.delete_one({"_id": insert_id})
+	local_client = MongoClient(port=27017)
+	local_db = local_client["testdb"]
+	mut_collection = local_db["mutation"]
 
-mut_collection.drop()
+	replacement_docs = getTruePositiveDocs(orig_collection, correct_cps)
 
-sus_clauses = []
-for clause, count in sus_counter.items():
-	if count > 0:
-		sus_clauses.append(clause)
+	for doc in orig_collection.find({primary_key: {"$in": list(superflous)}}):
+		for r_doc in replacement_docs:
+			id = doc[primary_key]
+			for c_map in superflous_clausemap[id]:
+				field = c_map["field"]
+				clause_str = c_map["clause_str"]
+				
+				mutant_doc = {}
+				for key in doc:
+					if key == "_id":
+						continue
+					if key == field:
+						mutant_doc[key] = r_doc[field] if field in r_doc else None
+					else:
+						mutant_doc[key] = doc[key]
+				
+				insert_result = mut_collection.insert_one(mutant_doc)
+				insert_id = insert_result.inserted_id
 
-print("\nResult: ", sus_clauses)
+				ret = set()
+				for res_row in mut_collection.find(oracle_query):
+					ret.add(res_row["_id"])
+
+				if len(ret) > 0:
+					for c_str in clause_assoc[clause_str]:
+						if c_str in sus_counter:
+							sus_counter[c_str] = sus_counter[c_str] - 1
+				
+				del_result = mut_collection.delete_one({"_id": insert_id})
+
+	replacement_doc = getTrueNegativeDoc(orig_collection, correct_clause_list)
+
+	if replacement_doc != None:
+		for doc in orig_collection.find({primary_key: {"$in": list(absent)}}):
+			id = doc[primary_key]
+			for c_map in absent_clausemap[id]:
+				field = c_map["field"]
+				clause_str = c_map["clause_str"]
+				
+				mutant_doc = {}
+				for key in doc:
+					if key == "_id":
+						continue
+					if key == field:
+						mutant_doc[key] = replacement_doc[field] if field in replacement_doc else None
+					else:
+						mutant_doc[key] = doc[key]
+
+				insert_result = mut_collection.insert_one(mutant_doc)
+				insert_id = insert_result.inserted_id
+				
+				ret = set()
+				for res_row in mut_collection.find(oracle_query):
+					ret.add(res_row["_id"])
+
+				if len(ret) == 0:
+					for c_str in clause_assoc[clause_str]:
+						if c_str in sus_counter:
+							sus_counter[c_str] = sus_counter[c_str] - 1
+
+				del_result = mut_collection.delete_one({"_id": insert_id})
+
+	mut_collection.drop()
+
+	sus_clauses = []
+	for clause, count in sus_counter.items():
+		if count > 0:
+			sus_clauses.append(clause)
+	return sus_clauses
+
+if __name__ == "__main__":
+	if len(sys.argv) < 2:
+		print("Insufficient arguments")
+	else:
+		file_name = sys.argv[1]
+		file = open(file_name)
+		input_data = json.load(file)
+		connection_url = input_data["connection_url"]
+		db_name = input_data["db_name"]
+		collection_name = input_data["collection_name"]
+		primary_key = input_data["primary_key"]
+		test_query = input_data["test_query"]
+		oracle_query = input_data["oracle_query"]
+		sus_clauses = run(connection_url, db_name, collection_name, primary_key, test_query, oracle_query)
+		print("\nResult: ", sus_clauses)

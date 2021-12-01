@@ -35,10 +35,15 @@ def convert(query):
 	print("\nintermediate DNF -> ", intermediate_dnf)
 	cps = [cp.strip() for cp in intermediate_dnf.split("|")]
 	cp_queries = []
+	clause_assoc = {}
 	for cp in cps:
 		clauses = [clause.strip().strip("(").strip(")") for clause in cp.split("&")]
 		clause_list = []
 		for clause in clauses:
+			if str(clause_map[clause]) in clause_assoc:
+				clause_assoc[str(clause_map[clause])].extend([str(clause_map[c]) for c in clauses if c != clause])
+			else:
+				clause_assoc[str(clause_map[clause])] = [str(clause_map[c]) for c in clauses if c != clause]
 			if "~" in clause:
 				clause_query = clause_map[clause[1:]]
 				field = list(clause_query.keys())[0] 
@@ -52,4 +57,4 @@ def convert(query):
 			cp_queries.append(clause_list[0])
 	dnf_query = {"$or": cp_queries}
 	print("\nDNF -> ", dnf_query)
-	return dnf_query, clause_map
+	return dnf_query, clause_map, clause_assoc

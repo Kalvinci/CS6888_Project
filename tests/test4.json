@@ -1,0 +1,30 @@
+{
+	"connection_url": "mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test",
+	"db_name": "sample_mflix",
+	"collection_name": "movies",
+	"primary_key": "_id",
+	"test_query": {
+		"$and": [
+			{"cast": { "$all": ["Leonardo DiCaprio", "Kate Winslet"] }},
+			{"countries": { "$all": ["USA"] }},
+			{"genres": { "$in": ["Romance"] } },
+			{"imdb.rating": { "$gt": 7 }},
+			{"languages": { "$in": ["English"] }},
+			{"year": { "$gte" :1990, "$lt": 2020 }},
+			{"runtime": {"$gte": 110, "$lt": 200}},
+			{"metacritic": {"$gte": 70}}
+		]
+	},
+	"oracle_query": {
+		"$and": [
+			{"cast": { "$all": ["Leonardo DiCaprio", "Kate Winslet"] }},
+			{"countries": { "$all": ["USA"] }},
+			{"genres": { "$in": ["Romance"] } },
+			{"imdb.rating": { "$gt": 7 }},
+			{"languages": { "$in": ["English"] }},
+			{"year": { "$gte" :1990, "$lt": 2020 }},
+			{"runtime": {"$gte": 110, "$lt": 200}},
+			{"metacritic": {"$gte": 60}}
+		]
+	}
+}

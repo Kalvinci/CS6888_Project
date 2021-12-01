@@ -1,0 +1,22 @@
+{
+	"connection_url": "mongodb://localhost:27017",
+	"db_name": "testdb",
+	"collection_name": "order",
+	"primary_key": "Orderid",
+	"test_query": {"$or" : [
+		{"$and" : [
+					{"Year" : { "$gt" : 2007} }, {"Price" : {"$gt" : 100}}
+					]},
+		{"$and" : [
+					{"Zipcode" : "10008"},{"Discount" : 0}
+					]}
+		]},
+	"oracle_query": {"$or" : [
+		{"$and" : [
+					{"Year" : { "$gt" : 2009} }, {"Price" : {"$gt" : 100}}
+					]},
+		{"$and" : [
+					{"Zipcode" : "10007"},{"Discount" : 0}
+					]}
+		]}
+}

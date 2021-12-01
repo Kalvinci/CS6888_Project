@@ -1,0 +1,8 @@
+{
+	"connection_url": "mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test",
+	"db_name": "sample_mflix",
+	"collection_name": "movies",
+	"primary_key": "_id",
+	"test_query": {"$and" : [{"$or": [{"languages":{"$in":["English"]}},{"rated" : "NOT RATED"}]},{"$or" : [{"metacritic" : {"$gt" : 98}},{"runtime" : {"$gt" : 600}}]}]},
+	"oracle_query": {"$and" : [{"$or": [{"languages":{"$in":["English"]}},{"rated" : "PASSED"}]},{"$or" : [{"metacritic" : {"$gt" : 99}},{"runtime" : {"$gt" : 600}}]}]}
+}
