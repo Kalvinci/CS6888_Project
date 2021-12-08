@@ -1,76 +1,89 @@
 from pymongo import MongoClient
 import math
 import queryparser as qparser
+import sys, json
+from tabulate import tabulate
 
-# "mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test"
-client = MongoClient(port=27017)
-db = client.testdb
+def run(connection_url, db_name, collection_name, primary_key, test_query, oracle_query):
+	client = MongoClient(connection_url)
 
-primary_key = "Orderid"
+	db = client[db_name]
+	orig_collection = db[collection_name]
+	primary_key = primary_key
 
-oracle_map = {}
-result_map = {}
+	allIds = set()
+	oracle_Ids = set()
+	result_Ids = set()
 
-allIds = set()
-for document in db.order.find({}, {"Orderid": 1}):
-	allIds.add(document["Orderid"])
+	for document in orig_collection.find({}, {primary_key: 1}):
+		allIds.add(document[primary_key])
 
-wrong_query = {"$or": [{"$and": [{"Year": {"$gt": 2007}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10008"}, {"Discount": 0}]}]}
-correct_query = {"$or": [{"$and": [{"Year": {"$gt": 2009}}, {"Price": {"$gt": 100}}]}, {"$and": [{"Zipcode": "10007"}, {"Discount": 0}]}]}
+	for doc in orig_collection.find(test_query, {primary_key: 1}):
+		result_Ids.add(doc[primary_key])
 
-for document in db.order.find(correct_query):
-	oracle_map[document[primary_key]] = document
+	for doc in orig_collection.find(oracle_query, {primary_key: 1}):
+		oracle_Ids.add(doc[primary_key])
 
-for document in db.order.find(wrong_query):
-	result_map[document[primary_key]] = document
+	superflous = result_Ids.difference(oracle_Ids)
+	absent = oracle_Ids.difference(result_Ids)
+
+	cp_clause_list, g_clause_map, clause_assoc = qparser.parse(test_query)
+	clause_list = list(g_clause_map.values())
+
+	totalPassIds = allIds.difference(superflous).difference(absent)
+	totalFailIds = allIds.difference(totalPassIds)
+
+	t_sus_score_map = {}
+	o_sus_score_map = {}
+
+	for clause in clause_list:
+		clausePassIds = set()
+		for doc in orig_collection.find(clause):
+			clausePassIds.add(doc[primary_key])
+		clauseFailIds = allIds.difference(clausePassIds)
+		tpratio = len(totalPassIds.intersection(clausePassIds)) / len(totalPassIds)
+		tfratio = len(totalFailIds.intersection(clausePassIds)) / len(totalFailIds)
+		denominator = tfratio + tpratio
+		trueScore = 0 if denominator == 0 else round(tfratio / denominator, 2)
+		fpratio = len(totalPassIds.intersection(clauseFailIds)) / len(totalPassIds)
+		ffratio = len(totalFailIds.intersection(clauseFailIds)) / len(totalFailIds)
+		denominator = ffratio + fpratio
+		falseScore = 0 if denominator == 0 else round(ffratio / denominator, 2)
+		t_sus_score_map[str(clause)] = round((trueScore + falseScore) / 2, 2)
+
+	for clause in clause_list:
+		clausePassIds = set()
+		for doc in orig_collection.find(clause):
+			clausePassIds.add(doc[primary_key])
+		clauseFailIds = allIds.difference(clausePassIds)
+		passed_c = len(totalPassIds.intersection(clausePassIds))
+		failed_c = len(totalFailIds.intersection(clausePassIds))
+		total_failed = len(totalFailIds)
+		denominator = math.sqrt(total_failed * (failed_c + passed_c))
+		trueScore = 0 if denominator == 0 else round(failed_c / denominator, 2)
+		passed_c = len(totalPassIds.intersection(clauseFailIds))
+		failed_c = len(totalFailIds.intersection(clauseFailIds))
+		denominator = math.sqrt(total_failed * (failed_c + passed_c))
+		falseScore =  0 if denominator == 0 else round(failed_c / denominator, 2)
+		o_sus_score_map[str(clause)] = round((trueScore + falseScore) / 2, 2)
+
+	print("\nTarantula:")
+	print(tabulate(t_sus_score_map.items(), headers=["Clause", "Suspiciousness Score"], tablefmt="psql", showindex=False))
+	print("\nOchiai:")
+	print(tabulate(o_sus_score_map.items(), headers=["Clause", "Suspiciousness Score"], tablefmt="psql", showindex=False))
 
 
-oracle_orderIds = set(oracle_map.keys())
-result_orderIds = set(result_map.keys())
-
-superflous = result_orderIds.difference(oracle_orderIds)
-absent = oracle_orderIds.difference(result_orderIds)
-
-cp_clause_list, clause_list = qparser.parse(wrong_query)
-
-totalPassIds = allIds.difference(superflous).difference(absent)
-totalFailIds = allIds.difference(totalPassIds)
-
-t_sus_score_map = {}
-o_sus_score_map = {}
-
-for clause in clause_list:
-	clausePassIds = set()
-	for doc in db.order.find(clause):
-		clausePassIds.add(doc[primary_key])
-	clauseFailIds = allIds.difference(clausePassIds)
-	tpratio = len(totalPassIds.intersection(clausePassIds)) / len(totalPassIds)
-	tfratio = len(totalFailIds.intersection(clausePassIds)) / len(totalFailIds)
-	denominator = tfratio + tpratio
-	trueScore = 0 if denominator == 0 else round(tfratio / denominator, 2)
-	fpratio = len(totalPassIds.intersection(clauseFailIds)) / len(totalPassIds)
-	ffratio = len(totalFailIds.intersection(clauseFailIds)) / len(totalFailIds)
-	denominator = ffratio + fpratio
-	falseScore = 0 if denominator == 0 else round(ffratio / denominator, 2)
-	t_sus_score_map[str(clause)] = {"true": trueScore, "false": falseScore, "score": round((trueScore + falseScore), 2)}
-
-for clause in clause_list:
-	clausePassIds = set()
-	for doc in db.order.find(clause):
-		clausePassIds.add(doc[primary_key])
-	clauseFailIds = allIds.difference(clausePassIds)
-	passed_c = len(totalPassIds.intersection(clausePassIds))
-	failed_c = len(totalFailIds.intersection(clausePassIds))
-	total_failed = len(totalFailIds)
-	denominator = math.sqrt(total_failed * (failed_c + passed_c))
-	trueScore = 0 if denominator == 0 else round(failed_c / denominator, 2)
-	passed_c = len(totalPassIds.intersection(clauseFailIds))
-	failed_c = len(totalFailIds.intersection(clauseFailIds))
-	denominator = math.sqrt(total_failed * (failed_c + passed_c))
-	falseScore =  0 if denominator == 0 else round(failed_c / denominator, 2)
-	o_sus_score_map[str(clause)] = {"true": trueScore, "false": falseScore, "score": round((trueScore + falseScore), 2)}
-
-print("\nTarantula:")
-print(t_sus_score_map)
-print("\nOchiai:")
-print(o_sus_score_map)
+if __name__ == "__main__":
+	if len(sys.argv) < 2:
+		print("Insufficient arguments")
+	else:
+		file_name = sys.argv[1]
+		file = open(file_name)
+		input_data = json.load(file)
+		connection_url = input_data["connection_url"]
+		db_name = input_data["db_name"]
+		collection_name = input_data["collection_name"]
+		primary_key = input_data["primary_key"]
+		test_query = input_data["test_query"]
+		oracle_query = input_data["oracle_query"]
+		run(connection_url, db_name, collection_name, primary_key, test_query, oracle_query)

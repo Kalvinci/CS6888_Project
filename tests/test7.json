@@ -1,0 +1,56 @@
+{
+	"connection_url": "mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test",
+	"db_name": "sample_airbnb",
+	"collection_name": "listingsAndReviews",
+	"primary_key": "_id",
+	"test_query": {
+		"$and": [
+			{
+				"security_deposit": {"$gt": 1000}
+			},
+			{
+				"$or": [
+					{
+						"price": {"$gt": 1000}
+					}, 
+					{
+						"$and" : [
+							{"maximum_nights": {"$gt": 2}},
+							{"bathrooms": {"$gt": 4}}
+						]
+					}, 
+					{
+						"$or" : [
+							{"bathrooms": {"$gt": 4}},
+							{"beds": {"$gt": 10}}
+						]
+					}
+				]
+			}	
+		]
+	},
+	"oracle_query": {
+		"$and" : [
+			{
+				"security_deposit": {"$gt": 900}
+			}, 
+			{
+				"$or": [
+					{"price": {"$gt": 1000}
+				}, 
+				{
+					"$and": [
+						{"maximum_nights": {"$gt": 2}},
+						{"bathrooms": {"$gt": 4}}
+					]
+				}, 
+				{
+					"$or": [
+						{"bathrooms": {"$gt": 4}},
+						{"beds": {"$gt": 9}}
+					]
+				}
+			]
+		}	
+	]}
+}
