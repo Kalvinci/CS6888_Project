@@ -11,4 +11,4 @@
 - Sample JSONFILE can be found under `/tests` folder
 
 ## Experiments
-The experiments can be repeated by running the `fl.py` and `baseline.py` on each of the test json file except `test0.json` under `/tests` folder.
+The experiments can be repeated by running `fl.py` and `baseline.py` on each of the test json file except `test0.json` under `/tests` folder.
