@@ -68,9 +68,9 @@ def run(connection_url, db_name, collection_name, primary_key, test_query, oracl
 		o_sus_score_map[str(clause)] = round((trueScore + falseScore) / 2, 2)
 
 	print("\nTarantula:")
-	print(tabulate(t_sus_score_map.items(), headers=["Clause", "Suspiciousness Score"], tablefmt="psql", showindex=False))
+	print(tabulate(sorted(list(t_sus_score_map.items()), key=lambda x: x[1], reverse=True), headers=["Clause", "Suspiciousness Score"], tablefmt="psql", showindex=False))
 	print("\nOchiai:")
-	print(tabulate(o_sus_score_map.items(), headers=["Clause", "Suspiciousness Score"], tablefmt="psql", showindex=False))
+	print(tabulate(sorted(list(o_sus_score_map.items()), key=lambda x: x[1], reverse=True), headers=["Clause", "Suspiciousness Score"], tablefmt="psql", showindex=False))
 
 
 if __name__ == "__main__":

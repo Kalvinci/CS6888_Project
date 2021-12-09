@@ -1,0 +1,12 @@
+{
+	"connection_url": "mongodb+srv://kalyan:k4ly4nk4l1@cluster0.ersqz.mongodb.net/test",
+	"db_name": "sample_mflix",
+	"collection_name": "movies",
+	"primary_key": "_id",
+	"test_query": {
+		"$and" : [{"tomatoes.viewer.rating" : {"$gt" : 3}}, {"$or": [{"imdb.rating": {"$gte": 6.0}}, {"awards.nominations": {"$gt": 3}}, {"$and" : [{"rated": "APPROVED"}, {"runtime" : {"$gt" : 60}}, {"imdb.votes": {"$gt": 1000}}]}]}
+	]},
+	"oracle_query": {
+		"$and" : [{"tomatoes.viewer.rating" : {"$gt" : 5}}, {"$or": [{"imdb.rating": {"$gte": 6.2}}, {"awards.nominations": {"$gt": 5}}, {"$and" : [{"rated": "APPROVED"}, {"runtime" : {"$gt" : 60}}, {"imdb.votes": {"$gt": 1200}}]}]}
+	]}
+}

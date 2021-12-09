@@ -95,7 +95,7 @@ def run(connection_url, db_name, collection_name, primary_key, test_query, oracl
 			for c_map in superflous_clausemap[id]:
 				field = c_map["field"]
 				clause_str = c_map["clause_str"]
-				
+
 				mutant_doc = {}
 				for key in doc:
 					if key == "_id":
@@ -105,6 +105,10 @@ def run(connection_url, db_name, collection_name, primary_key, test_query, oracl
 					else:
 						mutant_doc[key] = doc[key]
 				
+				if "." in field:
+					top_field = field.split(".")[0]
+					mutant_doc[top_field] = r_doc[top_field] if top_field in r_doc else None
+
 				insert_result = mut_collection.insert_one(mutant_doc)
 				insert_id = insert_result.inserted_id
 
@@ -136,6 +140,10 @@ def run(connection_url, db_name, collection_name, primary_key, test_query, oracl
 						mutant_doc[key] = replacement_doc[field] if field in replacement_doc else None
 					else:
 						mutant_doc[key] = doc[key]
+				
+				if "." in field:
+					top_field = field.split(".")[0]
+					mutant_doc[top_field] = replacement_doc[top_field] if top_field in replacement_doc else None
 
 				insert_result = mut_collection.insert_one(mutant_doc)
 				insert_id = insert_result.inserted_id
