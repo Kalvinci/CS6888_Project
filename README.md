@@ -4,9 +4,11 @@
 - A local mongodb server running on port 27017
 
 ## Running the code
+- Install the dependencies
+	`pip install -r requirements.txt`
 - To run the fault localizer
 	`python fl.py [JSONFILE]`
-- To run the baselines (Tarantual & Ochiai)
+- To run the baselines (Tarantula & Ochiai)
 	`python baseline.py [JSONFILE]`
 - Sample JSONFILE can be found under `/tests` folder
 
