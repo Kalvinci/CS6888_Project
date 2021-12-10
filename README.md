@@ -1,7 +1,7 @@
 # NoSQL Fault Localization
 
 ## Requirements
-- A local mongodb server running on port 27017
+- A local mongodb server running on port `27017`
 
 ## Running the code
 - Install the dependencies
